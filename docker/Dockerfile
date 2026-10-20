@@ -67,23 +67,32 @@ RUN wget -q https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cl
 
 ENV PATH=/google-cloud-sdk/bin:$PATH
 
-COPY CMakeLists.txt configure /manta-src/
-COPY redist /manta-src/redist
-COPY src /manta-src/src
+COPY scratch/make_release_tarball.bash /manta-src/scratch/make_release_tarball.bash
 
-# Bind-mount the host .git (read-only, BuildKit-only, never baked into an image layer) so that cmake's
-# `git describe` call (src/cmake/getBuildTimeConfigInfo.cmake) can embed the real version, e.g. 1.6.0-4-gabcdef12,
-# instead of falling back to "UNKNOWN". The bind-mounted .git keeps the host user's UID while this RUN executes
-# as root, which trips git's "dubious ownership" check unless it's told to trust it.
+# Build Manta the way Illumina built its releases: scratch/make_release_tarball.bash runs `git archive` on the
+# committed HEAD, records the `git describe` version (e.g. 1.6.0-4-gabcdef12), and sets DEVELOPER_MODE to false.
+# Building straight from a git checkout leaves DEVELOPER_MODE on, which turns every compiler warning into an error.
+# Because the source comes from `git archive HEAD`, uncommitted changes in the build context are not included.
+#
+# The host .git is bind-mounted read-only (BuildKit-only, never baked into an image layer). It keeps the host
+# user's UID while this RUN executes as root, which trips git's "dubious ownership" check unless it's told to trust it.
+#
+# Ubuntu 22.04's boost 1.74 has a header bug: boost/serialization/set.hpp uses library_version_type without
+# including the header that defines it (fixed in later boost releases). Force-including that header works around it.
+#
 # Manta builds and runs its C++ unit tests as part of `make`, so a failing unit test fails the image build.
-# /manta-src is left in place: it is already in the COPY layers above, so deleting it would not shrink the image.
 RUN --mount=type=bind,source=.git,target=/manta-src/.git,ro \
     git config --global --add safe.directory '*' \
-    && mkdir /manta-build \
-    && cd /manta-build \
-    && /manta-src/configure --jobs=$(nproc) --prefix=/opt/manta \
+    && mkdir /manta-release \
+    && cd /manta-release \
+    && bash /manta-src/scratch/make_release_tarball.bash \
+    && tar xjf manta-*.release_src.tar.bz2 \
+    && mkdir build \
+    && cd build \
+    && CXXFLAGS="-include boost/serialization/library_version_type.hpp" \
+        ../manta-*.release_src/configure --jobs=$(nproc) --prefix=/opt/manta \
     && make -j$(nproc) install \
     && cd / \
-    && rm -r /manta-build
+    && rm -r /manta-release
 
 ENV PATH=/opt/manta/bin:$PATH

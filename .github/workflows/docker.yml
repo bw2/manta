@@ -7,10 +7,10 @@ name: Docker Build
 on:
   push:
     branches: [master]
-    paths: [src/**, redist/**, CMakeLists.txt, configure, docker/**, .dockerignore, .github/workflows/docker.yml]
+    paths: [src/**, redist/**, CMakeLists.txt, configure, scratch/make_release_tarball.bash, docker/**, .dockerignore, .github/workflows/docker.yml]
   pull_request:
     branches: [master]
-    paths: [src/**, redist/**, CMakeLists.txt, configure, docker/**, .dockerignore, .github/workflows/docker.yml]
+    paths: [src/**, redist/**, CMakeLists.txt, configure, scratch/make_release_tarball.bash, docker/**, .dockerignore, .github/workflows/docker.yml]
 
 permissions:
   contents: write
