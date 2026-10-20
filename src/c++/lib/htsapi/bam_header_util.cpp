@@ -147,9 +147,15 @@ std::string get_bam_header_sample_name(const bam_hdr_t& header, const char* defa
 {
   assert(nullptr != default_sample_name);
 
+  // Since htslib 1.10, bam_hdr_t::text is no longer guaranteed to be filled in (for example after reading a
+  // CRAM header), so get the header text through sam_hdr_str(). It does not modify the header despite taking
+  // a non-const pointer, and returns nullptr if the header has no text.
+  const char* header_text(sam_hdr_str(const_cast<bam_hdr_t*>(&header)));
+  if (nullptr == header_text) return default_sample_name;
+
   std::vector<std::string> lines;
   std::vector<std::string> words;
-  split_string(header.text, '\n', lines);
+  split_string(header_text, '\n', lines);
   for (const auto& line : lines) {
     split_string(line, '\t', words);
     if ((!words.empty()) && (words.front() == "@RG")) {

@@ -23,6 +23,8 @@ util -- simple utilities shared by workflow configurations
 
 
 import os.path
+import re
+import subprocess
 
 from optparse import OptionParser
 from checkChromSet import checkChromSet
@@ -260,12 +262,48 @@ def checkForBamIndex(bamFile):
     raise OptParseException("Can't find any expected BAM/CRAM index files for: '%s'" % (bamFile))
 
 
-def groomBamList(bamList, sampleLabel):
+def isUrl(path) :
+    """
+    return True if path is a URL such as gs://bucket/sample.cram, s3://bucket/sample.cram or
+    https://host/sample.cram, which htslib reads directly, rather than a local file path
+    """
+    return re.match(r"^[A-Za-z][A-Za-z0-9+.-]*://", path) is not None
+
+
+def checkForBamIndexAtUrl(htsfileBin, bamUrl) :
+    """
+    make sure the bam/cram at bamUrl has an index, by trying to open each expected index URL with htsfile,
+    which reads URLs the same way as the Manta binaries (so the same credentials apply, e.g. GCS_OAUTH_TOKEN
+    for gs:// and the AWS_* variables for s3://)
+    """
+    indexUrls = [bamUrl + ext for ext in (".bai", ".csi", ".crai")]
+    if bamUrl.endswith(".bam") :
+        indexUrls.append(bamUrl[:-len(".bam")] + ".bai")
+
+    devnull = open(os.devnull, "w")
+    try :
+        for indexUrl in indexUrls :
+            if subprocess.call([htsfileBin, indexUrl], stdout=devnull, stderr=devnull) == 0 : return
+    finally :
+        devnull.close()
+
+    raise OptParseException("Can't open any expected BAM/CRAM index files for: '%s' (tried %s)" %
+                            (bamUrl, ", ".join(indexUrls)))
+
+
+def groomBamList(bamList, sampleLabel, htsfileBin):
     """
     check that bam/cram files exist, have ".bam/.cram" extention, and have an index, convert to abs path if they check out
+
+    bam/cram files given as URLs (gs://, s3://, http(s)://, ...) are kept unchanged, and their index is checked
+    by opening it with htsfileBin
     """
     if bamList is None : return
     for (index,bamFile) in enumerate(bamList) :
+        if isUrl(bamFile) :
+            checkForBamExtension(bamFile)
+            checkForBamIndexAtUrl(htsfileBin, bamFile)
+            continue
         bamList[index]=validateFixExistingFileArg(bamFile,"%s BAM/CRAM file" % (sampleLabel))
         checkForBamExtension(bamList[index])
         checkForBamIndex(bamList[index])

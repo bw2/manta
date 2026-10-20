@@ -19,7 +19,6 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     liblzma-dev \
     libcurl4-openssl-dev \
     libssl-dev \
-    libncurses5-dev \
     libboost-chrono-dev \
     libboost-date-time-dev \
     libboost-filesystem-dev \
@@ -35,30 +34,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     time \
     && rm -rf /var/lib/apt/lists/*
 
-# samtools/htslib with Google Cloud Storage support, for slicing gs:// CRAMs before running Manta on the slice.
-# This is separate from the htslib 1.9 that Manta bundles and links statically (built with --disable-libcurl).
-ENV SAMTOOLS_VERSION="1.21"
-RUN wget -q https://github.com/samtools/htslib/releases/download/${SAMTOOLS_VERSION}/htslib-${SAMTOOLS_VERSION}.tar.bz2 \
-    && tar xjf htslib-${SAMTOOLS_VERSION}.tar.bz2 \
-    && rm htslib-${SAMTOOLS_VERSION}.tar.bz2 \
-    && cd htslib-${SAMTOOLS_VERSION} \
-    && ./configure --enable-gcs \
-    && make -j$(nproc) \
-    && make install \
-    && cd / \
-    && rm -r htslib-${SAMTOOLS_VERSION}
-
-RUN wget -q https://github.com/samtools/samtools/releases/download/${SAMTOOLS_VERSION}/samtools-${SAMTOOLS_VERSION}.tar.bz2 \
-    && tar xjf samtools-${SAMTOOLS_VERSION}.tar.bz2 \
-    && rm samtools-${SAMTOOLS_VERSION}.tar.bz2 \
-    && cd samtools-${SAMTOOLS_VERSION} \
-    && ./configure \
-    && make -j$(nproc) \
-    && make install \
-    && cd / \
-    && rm -r samtools-${SAMTOOLS_VERSION}
-
-# install gcloud (used to mint the GCS_OAUTH_TOKEN that htslib needs to read gs:// paths)
+# install gcloud (used to mint the GCS_OAUTH_TOKEN that htslib needs to read non-public gs:// paths)
 ENV GCLOUD_SDK_VERSION="512.0.0"
 RUN wget -q https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-${GCLOUD_SDK_VERSION}-linux-x86_64.tar.gz \
     && tar xzf google-cloud-sdk-${GCLOUD_SDK_VERSION}-linux-x86_64.tar.gz \
@@ -94,5 +70,10 @@ RUN --mount=type=bind,source=.git,target=/manta-src/.git,ro \
     && make -j$(nproc) install \
     && cd / \
     && rm -r /manta-release
+
+# Manta's bundled htslib/samtools 1.21 are built with libcurl, so they read gs://, s3:// and http(s):// URLs.
+# Put them on the PATH, e.g. for slicing a gs:// CRAM with samtools before running Manta on the slice.
+RUN ln -s /opt/manta/libexec/samtools /opt/manta/libexec/htsfile /opt/manta/libexec/bgzip /opt/manta/libexec/tabix \
+    /usr/local/bin/
 
 ENV PATH=/opt/manta/bin:$PATH

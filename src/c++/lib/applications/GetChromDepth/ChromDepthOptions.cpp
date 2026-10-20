@@ -47,7 +47,8 @@ static void usage(
 static bool parseOptions(
     const boost::program_options::variables_map& vm, ChromDepthOptions& opt, std::string& errorMsg)
 {
-  if (checkAndStandardizeRequiredInputFilePath(opt.alignmentFilename, "alignment", errorMsg)) return true;
+  if (checkAndStandardizeRequiredAlignmentFilePathOrUrl(opt.alignmentFilename, "alignment", errorMsg))
+    return true;
   if (checkAndStandardizeRequiredInputFilePath(opt.referenceFilename, "reference fasta", errorMsg))
     return true;
 

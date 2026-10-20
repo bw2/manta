@@ -56,6 +56,27 @@ jobs:
       # so run it with python2 explicitly. It exits non-zero if any demo output differs from the expected results.
       run: docker run --rm --workdir /tmp weisburd/manta:latest python2 /opt/manta/bin/runMantaWorkflowDemo.py
 
+    - name: Run the Manta demo with its BAMs read from https:// URLs
+      # Same demo and expected results as above, but Manta reads both BAMs (and their indexes) over https:// from
+      # this commit's copy of src/demo/data, which exercises the URL code paths in configManta.py and the C++ tools.
+      run: |
+        docker run --rm --workdir /tmp weisburd/manta:latest python2 /opt/manta/bin/runMantaWorkflowDemo.py \
+          https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/src/demo/data
+
+    - name: Read public gs:// and s3:// files with Manta's bundled htslib
+      # Anonymous reads of public objects. Non-public buckets need GCS_OAUTH_TOKEN (and GCS_REQUESTER_PAYS_PROJECT for
+      # requester-pays buckets) or AWS credentials.
+      run: |
+        docker run --rm weisburd/manta:latest bash -c '
+          set -e
+          for url in \
+              gs://gcp-public-data--broad-references/hg38/v0/Homo_sapiens_assembly38.dict \
+              s3://1000genomes/phase3/data/HG00096/alignment/HG00096.mapped.ILLUMINA.bwa.GBR.low_coverage.20120522.bam ; do
+            header=$(/opt/manta/libexec/htsfile -h "$url")
+            echo "$url: $(echo "$header" | grep -c "^@SQ") @SQ lines"
+            echo "$header" | grep -q "^@SQ"
+          done'
+
     - name: Check that samtools and gcloud run
       run: docker run --rm weisburd/manta:latest bash -c "samtools --version | head -2 && gcloud --version | head -1"
 

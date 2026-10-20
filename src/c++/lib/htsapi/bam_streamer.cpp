@@ -26,6 +26,10 @@
 #include "blt_util/log.hpp"
 #include "htsapi/bam_header_util.hpp"
 
+extern "C" {
+#include "htslib/hfile.h"
+}
+
 #include <cassert>
 #include <cstdlib>
 
@@ -127,9 +131,10 @@ void bam_streamer::_load_index()
 
   std::string index_base(name());
 
-  // hack to allow GATK/Picard bai name convention:
-  if ((!fexists((index_base + ".bai").c_str())) && (!fexists((index_base + ".csi").c_str())) &&
-      (!fexists((index_base + ".crai").c_str()))) {
+  // hack to allow GATK/Picard bai name convention. It is skipped for URLs (gs://, s3://, http(s)://, ...), whose
+  // index files fexists() can't see; for those, htslib itself tries both "sample.bam.bai" and "sample.bai".
+  if ((!hisremote(index_base.c_str())) && (!fexists((index_base + ".bai").c_str())) &&
+      (!fexists((index_base + ".csi").c_str())) && (!fexists((index_base + ".crai").c_str()))) {
     static const std::string bamext(".bam");
     if (hasEnding(index_base, bamext)) {
       index_base = index_base.substr(0, index_base.length() - bamext.length());

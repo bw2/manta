@@ -11,8 +11,26 @@ Changes in this fork:
 
 - 2026-10-19: added `docker/Dockerfile`, `docker/Makefile` and a GitHub Actions workflow
   (`.github/workflows/docker.yml`) that builds the `weisburd/manta` Docker image, runs Manta's demo against its
-  expected results, and publishes the image to Docker Hub. The image also includes samtools 1.21 (with Google Cloud
-  Storage support) and gcloud.
+  expected results, and publishes the image to Docker Hub. The image also includes gcloud.
+- 2026-10-19: alignment files (BAM or CRAM) can be read directly from `gs://`, `s3://`, `http(s)://` and `ftp://`
+  URLs. The bundled htslib and samtools were upgraded from 1.9 to 1.21 and htslib is now built with libcurl, Google
+  Cloud Storage and AWS S3 support. htslib 1.9 only signed S3 requests with AWS Signature Version 2, which buckets
+  created in recent years don't accept, and had no support for requester-pays Google buckets. The reference FASTA
+  and other inputs must still be local files.
+
+### Reading alignment files from URLs
+
+Pass the URL to `configManta.py` in place of a local path, for example `--bam gs://bucket/sample.cram`. The index
+is looked up next to the alignment file (`sample.cram.crai`, or `sample.bam.bai` / `sample.bai`). htslib downloads it
+into the directory that `runWorkflow.py` is started from, and reuses a file of the same name that is already there
+without checking that it belongs to the same alignment file, so start each run from a directory without other
+samples' index files. Credentials are read from the environment by htslib:
+
+- `gs://`: `GCS_OAUTH_TOKEN` (for example `export GCS_OAUTH_TOKEN=$(gcloud auth print-access-token)`), plus
+  `GCS_REQUESTER_PAYS_PROJECT` for requester-pays buckets. Access tokens expire after about an hour and htslib does not
+  refresh them, so very long runs over `gs://` URLs can fail partway through. Public objects need no token.
+- `s3://`: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `AWS_SESSION_TOKEN`, or `~/.aws/credentials`
+  (`AWS_PROFILE` selects a profile). Public objects need no credentials.
 
 
 Manta Structural Variant Caller

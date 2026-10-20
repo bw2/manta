@@ -66,10 +66,10 @@ bool parseOptions(
   if (opt.alignmentFilenames.empty()) {
     errorMsg = "Must specify at least one input alignment file";
   } else {
-    // check that alignment files exist, and names do not repeat
+    // check that local alignment files exist, and names do not repeat
     std::set<std::string> nameCheck;
     for (std::string& afile : opt.alignmentFilenames) {
-      if (checkAndStandardizeRequiredInputFilePath(afile, "alignment file", errorMsg)) break;
+      if (checkAndStandardizeRequiredAlignmentFilePathOrUrl(afile, "alignment file", errorMsg)) break;
       if (nameCheck.count(afile)) {
         std::ostringstream oss;
         oss << "Repeated alignment filename: " << afile << "\n";

@@ -26,3 +26,11 @@
 /// In case of error return true and provide error message
 bool checkAndStandardizeRequiredInputFilePath(
     std::string& filename, const char* fileLabel, std::string& errorMsg);
+
+/// Same as checkAndStandardizeRequiredInputFilePath, except that a URL which htslib reads directly (for example
+/// gs://, s3://, http(s):// or ftp://) is accepted unchanged without checking that it exists. htslib reports an
+/// error when the file is opened if the URL can't be read.
+///
+/// In case of error return true and provide error message
+bool checkAndStandardizeRequiredAlignmentFilePathOrUrl(
+    std::string& filename, const char* fileLabel, std::string& errorMsg);

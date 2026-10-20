@@ -51,6 +51,14 @@ def main() :
         logfp.write("\n")
         sys.exit(2)
 
+    # The demo BAMs are read from the installed demo data directory, unless another directory or a URL prefix
+    # (e.g. https://raw.githubusercontent.com/bw2/manta/master/src/demo/data) is given as the only argument.
+    # The URL form checks that alignment files can be read directly from gs://, s3:// or http(s):// URLs.
+    if len(sys.argv) > 2 :
+        logfp.write("usage: %s [directory or URL prefix of the demo BAMs]\n" % (sys.argv[0]))
+        sys.exit(2)
+    alignmentDirOrUrlPrefix = sys.argv[1].rstrip("/") if len(sys.argv) == 2 else dataDir
+
     #
     # Step 1: configure demo
     #
@@ -62,8 +70,8 @@ def main() :
         sys.exit(2)
 
     cmd  = "\"%s\"" % (configScript)
-    cmd += " --normalBam=\"%s\"" % (os.path.join(dataDir,"HCC1954.NORMAL.30x.compare.COST16011_region.bam"))
-    cmd += " --tumorBam=\"%s\"" % (os.path.join(dataDir,"G15512.HCC1954.1.COST16011_region.bam"))
+    cmd += " --normalBam=\"%s/%s\"" % (alignmentDirOrUrlPrefix, "HCC1954.NORMAL.30x.compare.COST16011_region.bam")
+    cmd += " --tumorBam=\"%s/%s\"" % (alignmentDirOrUrlPrefix, "G15512.HCC1954.1.COST16011_region.bam")
     cmd += " --referenceFasta=\"%s\"" % (os.path.join(dataDir,"Homo_sapiens_assembly19.COST16011_region.fa"))
     cmd += " --region=8:107652000-107655000"
     cmd += " --region=11:94974000-94989000"

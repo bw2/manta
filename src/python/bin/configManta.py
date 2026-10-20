@@ -139,8 +139,8 @@ You must specify a BAM or CRAM file for at least one sample.
         if options.defaultAlignStatsFile is not None :
             options.defaultAlignStatsFile=validateFixExistingFileArg(options.defaultAlignStatsFile,"default align stats")
 
-        groomBamList(options.normalBamList,"normal sample")
-        groomBamList(options.tumorBamList, "tumor sample")
+        groomBamList(options.normalBamList,"normal sample", options.htsfileBin)
+        groomBamList(options.tumorBamList, "tumor sample", options.htsfileBin)
 
         bamSetChecker = BamSetChecker()
         if safeLen(options.normalBamList) > 0 :

@@ -21,6 +21,10 @@
 
 #include "boost/filesystem.hpp"
 
+extern "C" {
+#include "htslib/hfile.h"
+}
+
 #include <sstream>
 
 bool checkAndStandardizeRequiredInputFilePath(
@@ -41,4 +45,14 @@ bool checkAndStandardizeRequiredInputFilePath(
   }
 
   return (!errorMsg.empty());
+}
+
+bool checkAndStandardizeRequiredAlignmentFilePathOrUrl(
+    std::string& filename, const char* fileLabel, std::string& errorMsg)
+{
+  if ((!filename.empty()) && hisremote(filename.c_str())) {
+    errorMsg.clear();
+    return false;
+  }
+  return checkAndStandardizeRequiredInputFilePath(filename, fileLabel, errorMsg);
 }

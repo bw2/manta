@@ -60,6 +60,35 @@ else  ()
     message(FATAL_ERROR "${TMP_MSG}")
 endif ()
 
+# htslib is built with libcurl so that alignment files can be read from gs://, s3:// and http(s):// URLs, and with
+# bzip2 and lzma so that CRAMs using those codecs can be decoded. Its S3 support also needs libcrypto's HMAC,
+# except on macOS where htslib uses CommonCrypto instead.
+find_package(CURL)
+if (NOT CURL_FOUND)
+    message(FATAL_ERROR "libcurl not found. It is required for htslib's gs://, s3:// and http(s):// support (on Debian/Ubuntu: apt-get install libcurl4-openssl-dev)")
+endif ()
+set (THIS_ADDITIONAL_LIB ${THIS_ADDITIONAL_LIB} ${CURL_LIBRARIES})
+
+if (NOT APPLE)
+    find_package(OpenSSL)
+    if (NOT OPENSSL_FOUND)
+        message(FATAL_ERROR "OpenSSL not found. Its libcrypto is required for htslib's s3:// support (on Debian/Ubuntu: apt-get install libssl-dev)")
+    endif ()
+    set (THIS_ADDITIONAL_LIB ${THIS_ADDITIONAL_LIB} ${OPENSSL_CRYPTO_LIBRARY})
+endif ()
+
+find_package(BZip2)
+if (NOT BZIP2_FOUND)
+    message(FATAL_ERROR "bzip2 not found. It is required by htslib to decode CRAMs (on Debian/Ubuntu: apt-get install libbz2-dev)")
+endif ()
+set (THIS_ADDITIONAL_LIB ${THIS_ADDITIONAL_LIB} ${BZIP2_LIBRARIES})
+
+find_package(LibLZMA)
+if (NOT LIBLZMA_FOUND)
+    message(FATAL_ERROR "liblzma not found. It is required by htslib to decode CRAMs (on Debian/Ubuntu: apt-get install liblzma-dev)")
+endif ()
+set (THIS_ADDITIONAL_LIB ${THIS_ADDITIONAL_LIB} ${LIBLZMA_LIBRARIES})
+
 superset(THIS_ADDITIONAL_LIB "${THIS_ADDITIONAL_LIB}")
 
 #
@@ -71,7 +100,7 @@ superset(CTPL_DIR "${THIS_REDIST_DIR}/${CTPL_PREFIX}")
 #
 # htslib
 #
-set(HTSLIB_PREFIX "htslib-1.9")
+set(HTSLIB_PREFIX "htslib-1.21")
 superset(HTSLIB_DIR "${CMAKE_CURRENT_BINARY_DIR}/${HTSLIB_PREFIX}")
 superset(HTSLIB_LIBRARY "${HTSLIB_DIR}/libhts.a")
 
@@ -95,7 +124,7 @@ set (HTSLIB_FINAL_TASK ${HTSLIB_DIR})
 if (NOT WIN32)
     add_custom_command(
         OUTPUT ${HTSLIB_LIBRARY}
-        COMMAND ./configure CC=${CMAKE_C_COMPILER} ${HTSLIB_CONFIGOPT} --disable-libcurl --disable-bz2 --disable-lzma >htslib.config.log 2>htslib.config.error.log || \(echo "Failed to configure htslib, see ${HTSLIB_DIR}/htslib.config.error.log for details." && exit 1\)
+        COMMAND ./configure CC=${CMAKE_C_COMPILER} ${HTSLIB_CONFIGOPT} --enable-libcurl --enable-gcs --enable-s3 --without-libdeflate >htslib.config.log 2>htslib.config.error.log || \(echo "Failed to configure htslib, see ${HTSLIB_DIR}/htslib.config.error.log for details." && exit 1\)
         COMMAND $(MAKE) lib-static bgzip htsfile tabix >htslib.build.log 2>htslib.build.error.log || \(echo "Failed to build htslib, see ${HTSLIB_DIR}/htslib.build.error.log for details." && exit 1\)
         WORKING_DIRECTORY ${HTSLIB_DIR}
         DEPENDS ${HTSLIB_DIR}
@@ -117,7 +146,7 @@ endif ()
 #
 # samtools
 #
-set(SAMTOOLS_PREFIX "samtools-1.9")
+set(SAMTOOLS_PREFIX "samtools-1.21")
 set(SAMTOOLS_DIR "${CMAKE_CURRENT_BINARY_DIR}/${SAMTOOLS_PREFIX}")
 set(SAMTOOLS_LIBRARY "${SAMTOOLS_DIR}/libbam.a")
 superset(SAMTOOLS_PROG "${SAMTOOLS_DIR}/samtools")
