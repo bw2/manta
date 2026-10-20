@@ -1,0 +1,95 @@
+name: Docker Build
+
+# Builds docker/Dockerfile on every push/PR to master. This is also the Linux build check: the image build compiles
+# Manta and runs its C++ unit tests, and the steps below run Manta's bundled demo against its expected results.
+# On push (not PRs), also pushes the image to Docker Hub as weisburd/manta:latest (the same image + tag as
+# `make -C docker all`) and commits the resulting digest to docker/sha256.txt and to the docker image line in README.md.
+on:
+  push:
+    branches: [master]
+    paths: [src/**, redist/**, CMakeLists.txt, configure, docker/**, .dockerignore, .github/workflows/docker.yml]
+  pull_request:
+    branches: [master]
+    paths: [src/**, redist/**, CMakeLists.txt, configure, docker/**, .dockerignore, .github/workflows/docker.yml]
+
+permissions:
+  contents: write
+
+# Only pull request runs are cancelled by a newer run for the same PR. A push to master always runs to completion,
+# since it is what publishes the Docker Hub image and records its digest; later pushes queue behind it.
+concurrency:
+  group: docker-build-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        # Full history and tags, so that `git describe` inside the image build finds the v1.6.0 tag.
+        fetch-depth: 0
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build image
+      env:
+        DOCKER_BUILDKIT: "1"
+      run: make -C docker build
+
+    - name: Verify the embedded version is not "UNKNOWN"
+      run: |
+        set +e
+        VERSION_OUTPUT=$(docker run --rm weisburd/manta:latest configManta.py --version 2>&1)
+        STATUS=$?
+        set -e
+        echo "$VERSION_OUTPUT"
+        if [ "$STATUS" -ne 0 ] || echo "$VERSION_OUTPUT" | grep -qi "unknown"; then
+          echo "::error::configManta.py --version failed (exit $STATUS) or reports an UNKNOWN version -- the git bind-mount in docker/Dockerfile isn't picking up the real commit and tags."
+          exit 1
+        fi
+
+    - name: Run the Manta demo and compare to its expected results
+      run: docker run --rm --workdir /tmp weisburd/manta:latest runMantaWorkflowDemo.py
+
+    - name: Check that samtools and gcloud run
+      run: docker run --rm weisburd/manta:latest bash -c "samtools --version | head -2 && gcloud --version | head -1"
+
+    - name: Log in to Docker Hub
+      if: github.event_name == 'push'
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: Push to Docker Hub and record digest
+      if: github.event_name == 'push'
+      run: |
+        docker push weisburd/manta:latest
+        make -C docker update_sha
+
+    - name: Commit updated digest
+      if: github.event_name == 'push'
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git add docker/sha256.txt README.md
+        if git diff --cached --quiet; then
+          echo "No digest change to commit"
+          exit 0
+        fi
+        git commit -m "Update docker image sha256 digest [skip ci]"
+        # This push is a non-fast-forward whenever master moved during the build. Both commits then change the one
+        # line of docker/sha256.txt and the digest line in README.md, so rebase with -X theirs (during a rebase,
+        # "theirs" is the commit being replayed) to keep this run's digest, which belongs to the newer image.
+        for attempt in 1 2 3; do
+          git push && exit 0
+          echo "Push attempt ${attempt} failed; rebasing onto latest master and retrying."
+          git fetch origin master
+          git rebase -X theirs origin/master
+          sleep 5
+        done
+        echo "Failed to push the digest update after multiple attempts."
+        exit 1

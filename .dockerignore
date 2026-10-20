@@ -1,0 +1,5 @@
+build*
+scratch
+docs
+docker
+.github

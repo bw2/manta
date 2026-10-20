@@ -1,3 +1,20 @@
+[![Docker Build](https://github.com/bw2/manta/actions/workflows/docker.yml/badge.svg)](https://github.com/bw2/manta/actions/workflows/docker.yml)
+
+### Manta fork based on the last GPLv3 release
+
+This fork starts from [Illumina/manta](https://github.com/Illumina/manta) commit `75b5c38d` (2019-07-17), which is
+v1.6.0 plus documentation fixes. It is the last commit before Illumina relicensed Manta from GPLv3 to the PolyForm
+Strict license on 2025-10-10. Like the code it is based on, this fork is distributed under the GNU General Public
+License v3 (see [LICENSE.txt](LICENSE.txt)).
+
+Changes in this fork:
+
+- 2026-10-19: added `docker/Dockerfile`, `docker/Makefile` and a GitHub Actions workflow
+  (`.github/workflows/docker.yml`) that builds the `weisburd/manta` Docker image, runs Manta's demo against its
+  expected results, and publishes the image to Docker Hub. The image also includes samtools 1.21 (with Google Cloud
+  Storage support) and gcloud.
+
+
 Manta Structural Variant Caller
 ===============================
 
