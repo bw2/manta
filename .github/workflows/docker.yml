@@ -77,6 +77,9 @@ jobs:
             echo "$header" | grep -q "^@SQ"
           done'
 
+    - name: Test configManta.py --resume
+      run: docker run --rm -v "$PWD/docker:/tests:ro" weisburd/manta:latest bash /tests/test_configManta_resume.sh
+
     - name: Check that samtools and gcloud run
       run: docker run --rm weisburd/manta:latest bash -c "samtools --version | head -2 && gcloud --version | head -1"
 

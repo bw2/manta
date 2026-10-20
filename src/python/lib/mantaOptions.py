@@ -54,6 +54,12 @@ class MantaWorkflowOptionsBase(ConfigureWorkflowOptions) :
         group.add_option("--runDir", type="string", metavar="DIR",
                          help="Name of directory to be created where all workflow scripts and output will be written. "
                               "Each analysis requires a separate directory. (default: %default)")
+        group.add_option("--resume", dest="isResume", action="store_true",
+                         help="Make this command safe to rerun after an interrupted run. If the run directory was "
+                              "already configured by an earlier configManta.py command with the same options and "
+                              "Manta version, leave it unchanged, so that rerunning runWorkflow.py continues the "
+                              "workflow from its last completed task. If anything differs, stop with an error that "
+                              "lists the differences. (default: off)")
         group.add_option("--callRegions", dest="callRegionsBed", metavar="FILE",
                          help="Optionally provide a bgzip-compressed/tabix-indexed BED file containing the set of regions to call. "
                               "No VCF output will be provided outside of these regions. The full genome will still be used "
@@ -135,6 +141,8 @@ class MantaWorkflowOptionsBase(ConfigureWorkflowOptions) :
         hyGenSGEMemMb=4*1024
         hyGenLocalMemMb=1.5*1024
 
+        isResume = False
+
         # extended options
         scanSizeMb = 12
         callRegionsBed = None
@@ -150,8 +158,8 @@ class MantaWorkflowOptionsBase(ConfigureWorkflowOptions) :
         options.runDir = os.path.abspath(options.runDir)
 
         workflowScriptPath = os.path.join(options.runDir, options.workflowScriptName)
-        if os.path.exists(workflowScriptPath):
-            raise OptParseException("Run directory already contains workflow script file '%s'. Each analysis must be configured in a separate directory." % (workflowScriptPath))
+        if os.path.exists(workflowScriptPath) and (not options.isResume) :
+            raise OptParseException("Run directory already contains workflow script file '%s'. Each analysis must be configured in a separate directory. To continue an interrupted run configured with the same options, rerun this command with --resume." % (workflowScriptPath))
 
         # check reference fasta file exists
         assertOptionExists(options.referenceFasta,"reference fasta file")

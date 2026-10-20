@@ -110,6 +110,28 @@ def getConfigWithPrimaryOptions(pickleConfigFile,primarySection) :
 
 
 
+def describeConfigSectionDifferences(previousConfigSections, newConfigSections, keysToIgnore) :
+    """
+    compare two hash-of-hashes config objects (as written by pickleConfigSections) and return a list of
+    human-readable lines, one per option that is missing from one of them or has a different value,
+    skipping option names in keysToIgnore. An empty list means the configurations are the same.
+    """
+    def describeValue(configSection, key) :
+        return repr(configSection[key]) if key in configSection else "(not set)"
+
+    differences = []
+    for section in sorted(set(previousConfigSections.keys()) | set(newConfigSections.keys())) :
+        previousSection = previousConfigSections.get(section, {})
+        newSection = newConfigSections.get(section, {})
+        for key in sorted(set(previousSection.keys()) | set(newSection.keys())) :
+            if key in keysToIgnore : continue
+            if (key in previousSection) and (key in newSection) and (previousSection[key] == newSection[key]) : continue
+            differences.append("[%s] %s: %s (earlier run) vs. %s (this command)" %
+                               (section, key, describeValue(previousSection, key), describeValue(newSection, key)))
+    return differences
+
+
+
 def dumpIniSections(iniFile,iniSections) :
     """
     convert iniSections object, expected to be a hash or hashes, into an iniFile

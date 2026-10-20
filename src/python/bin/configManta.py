@@ -41,7 +41,8 @@ sys.path.append(workflowDir)
 
 from configBuildTimeInfo import workflowVersion
 from mantaOptions import MantaWorkflowOptionsBase
-from configureUtil import BamSetChecker, groomBamList, OptParseException, validateFixExistingFileArg
+from configureUtil import BamSetChecker, groomBamList, OptParseException, validateFixExistingFileArg, \
+                          describeConfigSectionDifferences, getConfigSections
 from makeRunScript import makeRunScript
 from mantaWorkflow import MantaWorkflow
 from workflowUtil import ensureDir
@@ -157,15 +158,44 @@ def main() :
     primarySectionName="manta"
     options,iniSections=MantaWorkflowOptions().getRunOptions(primarySectionName, version=workflowVersion)
 
+    # Saved with the configuration so that --resume can detect a run directory configured by a different Manta build:
+    iniSections[primarySectionName]["configuredWithMantaVersion"] = workflowVersion
+
     # We don't need to instantiate the workflow object during configuration,
     # but do it here anyway to trigger additional parameter validation:
     #
     MantaWorkflow(options)
 
+    workflowScriptPath = os.path.join(options.runDir, options.workflowScriptName)
+
+    if options.isResume and os.path.exists(workflowScriptPath) :
+        # Keep the existing run directory, including pyflow's record of completed tasks, if it was configured
+        # with the same options. The command line itself and the --resume flag may differ between the two runs.
+        differences = describeConfigSectionDifferences(getConfigSections(workflowScriptPath + ".config.pickle"),
+                                                       iniSections,
+                                                       keysToIgnore=("configCommandLine", "isResume"))
+        if len(differences) > 0 :
+            sys.stderr.write("""
+ERROR: --resume: run directory '%s' was configured with different options or a different Manta version:
+
+%s
+
+To start over instead, delete the run directory or choose a different --runDir.
+
+""" % (options.runDir, "\n".join(differences)))
+            sys.exit(1)
+
+        sys.stdout.write("""
+--resume: run directory '%s' was already configured with the same options and Manta version, so it was left unchanged.
+To continue the workflow from its last completed task, run (or rerun) the following script:
+
+%s
+""" % (options.runDir, workflowScriptPath))
+        return
+
     # generate runscript:
     #
     ensureDir(options.runDir)
-    workflowScriptPath = os.path.join(options.runDir, options.workflowScriptName)
 
     makeRunScript(workflowScriptPath,os.path.join(workflowDir,"mantaWorkflow.py"),"MantaWorkflow",primarySectionName,iniSections)
 

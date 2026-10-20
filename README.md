@@ -18,6 +18,31 @@ Changes in this fork:
   created in recent years don't accept, and had no support for requester-pays Google buckets. The reference FASTA
   and other inputs must still be local files.
 
+- 2026-10-19: added `configManta.py --resume`, which makes the configure-and-run commands safe to rerun after an
+  interrupted run (see below).
+
+### Resuming an interrupted run
+
+Rerunning `runWorkflow.py` in a run directory already continues an interrupted run from its last completed task
+(Manta's workflow engine, pyflow, records which tasks finished). What upstream Manta doesn't allow is rerunning the
+same `configManta.py` command, which fails once the run directory exists. Adding `--resume` makes the whole command
+sequence rerunnable, for example in a cloud job that is retried after the machine is preempted:
+
+```bash
+configManta.py --bam sample.cram --referenceFasta ref.fa --runDir sample_manta --resume
+sample_manta/runWorkflow.py -j 8
+```
+
+- If `sample_manta` doesn't contain a configured run yet, `--resume` changes nothing: the run is configured as usual.
+- If it does, and the earlier `configManta.py` command used the same options and the same Manta version, the run
+  directory is left unchanged, so `runWorkflow.py` continues where the earlier run stopped.
+- If any option or the Manta version differs, `configManta.py` stops with an error that lists the differences.
+  Delete the run directory, or choose a different `--runDir`, to start over.
+- The run directory can't be moved: it must be at the same absolute path when the run is continued (for example,
+  copied back to the same path on a new machine). A task that was interrupted part way through is rerun from its
+  start. The SV locus graph is built in pieces of at most `--scanSizeMb` megabases (12 by default), but SV candidate
+  generation runs as a single task, so an interruption during that step repeats all of it.
+
 ### Reading alignment files from URLs
 
 Pass the URL to `configManta.py` in place of a local path, for example `--bam gs://bucket/sample.cram`. The index
