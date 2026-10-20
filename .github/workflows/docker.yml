@@ -52,7 +52,9 @@ jobs:
         fi
 
     - name: Run the Manta demo and compare to its expected results
-      run: docker run --rm --workdir /tmp weisburd/manta:latest runMantaWorkflowDemo.py
+      # runMantaWorkflowDemo.py's shebang is "#!/usr/bin/env python", and Ubuntu 22.04 has no "python" command,
+      # so run it with python2 explicitly. It exits non-zero if any demo output differs from the expected results.
+      run: docker run --rm --workdir /tmp weisburd/manta:latest python2 /opt/manta/bin/runMantaWorkflowDemo.py
 
     - name: Check that samtools and gcloud run
       run: docker run --rm weisburd/manta:latest bash -c "samtools --version | head -2 && gcloud --version | head -1"
