@@ -1,5 +1,11 @@
 [![Docker Build](https://github.com/bw2/manta/actions/workflows/docker.yml/badge.svg)](https://github.com/bw2/manta/actions/workflows/docker.yml)
 
+Latest docker image:
+
+```
+weisburd/manta@sha256:732311a7c654789942ea4eb70a0a9b699bd3a97237555a6fa080d9cd4530f9ed
+```
+
 ### Manta fork based on the last GPLv3 release
 
 This fork starts from [Illumina/manta](https://github.com/Illumina/manta) commit `75b5c38d` (2019-07-17), which is
